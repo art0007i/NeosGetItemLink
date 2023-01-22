@@ -58,6 +58,26 @@ namespace GetItemLink
                         color.Brown,
                         NeosAssets.Graphics.Badges.potato,
                         buttonRoot);
+                        AddButton(async (IButton button, ButtonEventData eventData) =>
+                        {
+                            CoroutineManager.Manager.Value = __instance.World.Coroutines;
+
+                            var editForm = __instance.Slot.OpenModalOverlay(new float2(.25f, .8f)).Slot.AttachComponent<RecordEditForm>();
+                            await default(ToBackground);
+                            CloudX.Shared.CloudResult<Record> cloudResult = await __instance.Engine.RecordManager.FetchRecord(TryExtractUri(__instance.SelectedInventoryItem, true), null);
+                            await default(ToWorld);
+                            if (cloudResult.IsOK)
+                            {
+                                AccessTools.Method(editForm.GetType(), "Setup").Invoke(editForm, new object[] { null, cloudResult.Entity });
+                            }
+                            else
+                            {
+                                AccessTools.Method(editForm.GetType(), "Error").Invoke(editForm, new object[] { cloudResult.State.ToString() + "\n" + cloudResult.Content });
+                            }
+                        },
+                        color.Orange,
+                        NeosAssets.Graphics.Icons.Dash.Settings,
+                        buttonRoot);
                     }
                 }
             }
@@ -99,13 +119,12 @@ namespace GetItemLink
             userButton.LocalPressed += onPress;
         }
 
-        public static void ItemLink(IButton button, InventoryItemUI Item, bool type)
+        public static Uri TryExtractUri(InventoryItemUI item, bool recordUri)
         {
-            string link;
-            Record record = (typeof(InventoryItemUI).GetField("Item", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Item) as Record);
+            Record record = (typeof(InventoryItemUI).GetField("Item", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(item) as Record);
             if (record == null)
             {
-                RecordDirectory Directory = (typeof(InventoryItemUI).GetField("Directory", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Item) as RecordDirectory);
+                RecordDirectory Directory = (typeof(InventoryItemUI).GetField("Directory", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(item) as RecordDirectory);
                 if (Directory != null)
                     record = Directory.LinkRecord;
                 if (record == null)
@@ -113,19 +132,27 @@ namespace GetItemLink
             }
             if (record != null)
             {
-                if (type)
-                    link = (record.URL.ToString());
+                if (recordUri)
+                    return record.URL;
                 else
-                    link = (record.AssetURI);
+                    return new Uri(record.AssetURI);
 
-                if (link != null)
-                {
-                    Engine.Current.InputInterface.Clipboard.SetText(link);
-                    button.Slot[0].GetComponent<Image>().Tint.Value = color.White;
-                }
-                else
-                    button.Slot[0].GetComponent<Image>().Tint.Value = color.Red;
             }
+            return null;
+        }
+
+        public static void ItemLink(IButton button, InventoryItemUI item, bool type)
+        {
+            string link = TryExtractUri(item, type).ToString();
+
+            if (link != null)
+            {
+                Engine.Current.InputInterface.Clipboard.SetText(link);
+                button.Slot[0].GetComponent<Image>().Tint.Value = color.White;
+            }
+            else
+                button.Slot[0].GetComponent<Image>().Tint.Value = color.Red;
+
         }
     }
 }
